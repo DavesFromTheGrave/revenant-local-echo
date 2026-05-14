@@ -1,0 +1,84 @@
+# ─── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ─── Virtual environments ─────────────────────────────────────────────────
+venv/
+venv-*/
+.venv/
+env/
+ENV/
+
+# ─── Environment / secrets ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+.picovoice_key
+
+# ─── Wake-word + ML model files ───────────────────────────────────────────
+# Custom wake-word ONNX/tflite files are not redistributed here.
+# See models/README.md (which IS committed) for how to fetch them.
+models/*
+!models/README.md
+.cache/
+*.onnx
+*.tflite
+*.pth
+*.bin
+
+# ─── Logs / runtime output ────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+
+# ─── Audio samples / generated audio ──────────────────────────────────────
+voice_samples/
+*.wav
+*.mp3
+*.flac
+
+# ─── Testing ──────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ─── IDE / editor ─────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── OS ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.windows
+
+# ─── Temporary ────────────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.backup
+temp/

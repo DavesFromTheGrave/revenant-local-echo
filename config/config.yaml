@@ -1,0 +1,71 @@
+# Revenant Echo Configuration
+# All tuneable values. No hardcoded settings.
+
+audio:
+  input_device: 2            # Microphone (USB 2.0 Camera) — keyboard-mounted webcam mic
+  output_device: null        # null = default system output
+  sample_rate: 16000         # STT expects 16kHz
+  chunk_size: 1024           # frames per buffer
+  vad_rms_threshold: 0.004   # RMS above this = "speech". Low — tuned for the quiet USB cam mic.
+  max_record_duration: 30.0  # hard cap on a single speech recording (seconds)
+
+wake_word:
+  enabled: true
+  # Custom community model: "Hey Friday" (Marvel reference, female AI).
+  # Path is project-local so this is portable across machines.
+  model: "models/hey_friday.onnx"
+  threshold: 0.6             # detection confidence (0-1); start at 0.6, tune if false-positive/missed
+
+stt:
+  model_size: "medium"       # tiny, small, medium, large
+  language: "en"
+  device: "cuda"             # cuda or cpu
+  compute_type: "float16"    # float16 (speed) or int8 (precision)
+
+  # Prompt bias for transcription
+  initial_prompt: |
+    Speaker uses technical vocabulary and programming terminology.
+    Proper nouns: V, Claude, Python, CUDA, Ollama, Kokoro.
+    Natural pauses mid-sentence are NOT sentence breaks.
+    Maintain natural speech cadence without adding punctuation on every breath.
+
+  # VAD tuning
+  no_speech_threshold: 0.3   # lower = less aggressive (0.1-0.6)
+  silence_duration: 2.0      # seconds of trailing silence to end recording
+  vad_min_silence_ms: 500    # whisper internal segment boundary
+
+tts:
+  model: "kokoro-82m"
+  voice: "af_bella"          # V's voice — female, natural, no speed boost needed
+  language: "en"
+  device: "cuda"
+  sample_rate: 24000
+  speed: 1.0                 # normal speed
+
+listening_window:
+  enabled: true
+  duration: 5.0              # seconds to listen for follow-ups after V speaks
+  max_wait_for_speech: 10.0  # seconds to wait inside a recording for speech to start
+
+models:
+  warm_window: 60.0          # seconds STT+TTS stay in VRAM after last activity
+
+backend:
+  type: "ollama"             # ollama, openai, local_echo
+
+  ollama:
+    endpoint: "http://localhost:11434/api/generate"
+    model: "revenant/v-9b"
+    temperature: 0.7
+    top_p: 0.9
+    max_tokens: 50           # cap response length — voice replies should be short (1-2 sentences)
+    timeout: 30              # seconds
+    keep_alive: "5m"         # ollama-side model retention
+
+  # openai:
+  #   api_key: ""
+  #   model: "gpt-4-turbo"
+
+logging:
+  level: "INFO"              # DEBUG, INFO, WARNING, ERROR
+  file: "logs/revenant_echo.log"

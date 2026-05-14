@@ -1,0 +1,35 @@
+# Revenant Echo — Local Voice Assistant Dependencies
+# Tested on Python 3.11.9, Windows 11, NVIDIA RTX 3070 Ti (CUDA 13)
+
+# ─── Wake word ──────────────────────────────────────────────────────────────
+openwakeword>=0.6.0
+
+# ─── Speech-to-text ─────────────────────────────────────────────────────────
+faster-whisper>=1.0.3
+
+# ─── Text-to-speech ─────────────────────────────────────────────────────────
+# Install with --no-deps to skip kokoro's over-conservative numpy==1.26.4 pin:
+#   pip install --no-deps kokoro==0.9.4
+# Then install kokoro's actual runtime deps manually:
+#   pip install loguru huggingface_hub "misaki[en]" munch espeakng-loader transformers
+kokoro>=0.9.0
+loguru
+huggingface_hub
+misaki[en]
+munch
+espeakng-loader
+transformers
+
+# ─── Audio I/O ──────────────────────────────────────────────────────────────
+pyaudio>=0.2.14
+numpy
+
+# ─── GPU runtime ────────────────────────────────────────────────────────────
+# Install the CUDA build to match your driver, e.g. cu121 for driver 12.x:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch>=2.0.0
+
+# ─── Backend / config / runtime ─────────────────────────────────────────────
+requests>=2.31.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
