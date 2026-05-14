@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import pyaudio
@@ -8,6 +8,58 @@ import pyaudio
 from config_loader import VoiceConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_device(p: pyaudio.PyAudio, spec: Union[int, str, None], want_input: bool) -> Optional[int]:
+    """
+    Resolve an audio device from config.
+
+    - None  → PyAudio's default device of the requested direction
+    - int   → used directly as the device index
+    - str   → case-insensitive substring match against device names. First
+              device whose name contains the substring AND has the right
+              direction (input/output) wins. Falls back to default on miss.
+    """
+    direction = "input" if want_input else "output"
+    default = p.get_default_input_device_info() if want_input else p.get_default_output_device_info()
+
+    if spec is None:
+        return int(default["index"])
+
+    if isinstance(spec, int) or (isinstance(spec, str) and spec.isdigit()):
+        return int(spec)
+
+    needle = str(spec).strip().lower()
+    matches = []
+    for i in range(p.get_device_count()):
+        info = p.get_device_info_by_index(i)
+        channels_key = "maxInputChannels" if want_input else "maxOutputChannels"
+        if info.get(channels_key, 0) <= 0:
+            continue
+        if needle in info["name"].lower():
+            matches.append((i, info["name"]))
+
+    if not matches:
+        logger.warning(f"No {direction} device matched name={spec!r}; falling back to default {default['index']}")
+        return int(default["index"])
+
+    chosen_idx, chosen_name = matches[0]
+    if len(matches) > 1:
+        logger.info(
+            f"Multiple {direction} devices matched name={spec!r}; picking first: "
+            f"[{chosen_idx}] {chosen_name!r} (others: {[m[1] for m in matches[1:]]})"
+        )
+    else:
+        logger.info(f"Resolved {direction} device name={spec!r} → [{chosen_idx}] {chosen_name!r}")
+    return chosen_idx
+
+
+def resolve_input_device(p: pyaudio.PyAudio, spec: Union[int, str, None]) -> Optional[int]:
+    return _resolve_device(p, spec, want_input=True)
+
+
+def resolve_output_device(p: pyaudio.PyAudio, spec: Union[int, str, None]) -> Optional[int]:
+    return _resolve_device(p, spec, want_input=False)
 
 
 class AudioIO:
@@ -30,18 +82,12 @@ class AudioIO:
             )
 
     def get_input_device(self) -> Optional[int]:
-        """Get input device index from config or default."""
-        device_id = self.config.get("audio.input_device")
-        if device_id is not None:
-            return int(device_id)
-        return self.p.get_default_input_device_info()["index"]
+        """Resolve the input device from config (int index or name substring)."""
+        return resolve_input_device(self.p, self.config.get("audio.input_device"))
 
     def get_output_device(self) -> Optional[int]:
-        """Get output device index from config or default."""
-        device_id = self.config.get("audio.output_device")
-        if device_id is not None:
-            return int(device_id)
-        return self.p.get_default_output_device_info()["index"]
+        """Resolve the output device from config (int index or name substring)."""
+        return resolve_output_device(self.p, self.config.get("audio.output_device"))
 
     def play_audio(self, audio_data: np.ndarray, sample_rate: int = 24000):
         """Play float32 audio to output device."""

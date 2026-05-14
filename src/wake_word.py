@@ -52,13 +52,14 @@ class WakeWordListener:
         )
 
     def _open_stream(self):
+        from audio_io import resolve_input_device
+
         sample_rate = int(self.config.get("audio.sample_rate", 16000))
         chunk_size = int(self.config.get("audio.chunk_size", 1024))
-        device_id = self.config.get("audio.input_device")
+        device_spec = self.config.get("audio.input_device")
 
         self._pa = pyaudio.PyAudio()
-        if device_id is None:
-            device_id = self._pa.get_default_input_device_info()["index"]
+        device_id = resolve_input_device(self._pa, device_spec)
 
         self._stream = self._pa.open(
             format=pyaudio.paInt16,
@@ -83,8 +84,11 @@ class WakeWordListener:
 
     def listen(self):
         """Blocking listen loop. Returns when wake word fires or stop() is called."""
+        import time
         logger.info("Wake word listener started")
         self.is_listening = True
+
+        debug_scores = bool(self.config.get("wake_word.debug_scores", False))
 
         # Reset the model's internal prediction buffer. Without this, residual
         # state from a prior detection causes instant false triggers on re-arm.
@@ -98,26 +102,52 @@ class WakeWordListener:
             sample_rate, chunk_size = self._open_stream()
 
             # Tiny warmup discard (~0.1s) — just enough to skip driver
-            # cold-start spikes without eating the front of an "Alexa" that
-            # comes in fast. The model.reset() above is what actually prevents
-            # the residual-state false trigger.
+            # cold-start spikes. The model.reset() above is what actually
+            # prevents the residual-state false trigger.
             warmup_chunks = max(1, int(0.1 * sample_rate / chunk_size))
             for _ in range(warmup_chunks):
                 self._stream.read(chunk_size, exception_on_overflow=False)
+
+            peak_score = 0.0
+            peak_name = ""
+            peak_rms = 0.0
+            last_report_ts = time.time()
 
             while self.is_listening:
                 data = self._stream.read(chunk_size, exception_on_overflow=False)
                 audio_chunk = np.frombuffer(data, dtype=np.int16)
 
+                # RMS in normalized [0,1] range so it's comparable to record_speech.
+                if debug_scores and audio_chunk.size:
+                    rms_norm = float(np.sqrt(np.mean((audio_chunk.astype(np.float32) / 32768.0) ** 2)))
+                    if rms_norm > peak_rms:
+                        peak_rms = rms_norm
+
                 predictions = self.model.predict(audio_chunk)
 
                 for name, score in predictions.items():
+                    if debug_scores and score > peak_score:
+                        peak_score = float(score)
+                        peak_name = name
                     if score > self.threshold:
                         logger.info(f"Wake word detected! ({name}: {score:.3f})")
                         self._close_stream()
                         if self.on_wake is not None:
                             self.on_wake()
                         return
+
+                # Periodic debug report — always logs even when zero so we
+                # can distinguish "no audio" from "audio but no recognition."
+                if debug_scores and (time.time() - last_report_ts) >= 2.0:
+                    logger.info(
+                        f"Wake 2s: peak_rms={peak_rms:.4f}  "
+                        f"peak_score={peak_name or '(none)'}={peak_score:.4f}  "
+                        f"threshold={self.threshold}"
+                    )
+                    peak_score = 0.0
+                    peak_name = ""
+                    peak_rms = 0.0
+                    last_report_ts = time.time()
         except KeyboardInterrupt:
             logger.info("Wake word listener interrupted")
         except Exception as e:

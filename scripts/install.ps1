@@ -55,12 +55,12 @@ Write-Host "Step 3b: Installing CUDA-enabled torch (cu121)…" -ForegroundColor 
 if ($LASTEXITCODE -ne 0) { Write-Host "  torch install failed" -ForegroundColor Red; exit 1 }
 
 Write-Host ""
-Write-Host "Step 3c: Installing Kokoro TTS (no-deps, then runtime deps)…" -ForegroundColor Green
-# kokoro hard-pins numpy==1.26.4 which is overly conservative; --no-deps
-# skips that and we install kokoro's actual runtime deps explicitly.
-& py -3.11 -m pip install --no-deps kokoro==0.9.4
-& py -3.11 -m pip install loguru huggingface_hub "misaki[en]" munch espeakng-loader transformers
-if ($LASTEXITCODE -ne 0) { Write-Host "  kokoro install failed" -ForegroundColor Red; exit 1 }
+Write-Host "Step 3c: Installing Chatterbox Turbo TTS…" -ForegroundColor Green
+# Chatterbox pulls torchaudio + librosa + transformers + diffusers + perth.
+# First-run model weights (~1.5 GB) auto-download to the HF cache on first
+# generation. Pre-warm those in Step 5 so the user doesn't pay it on turn 1.
+& py -3.11 -m pip install "chatterbox-tts>=0.1.7" torchaudio
+if ($LASTEXITCODE -ne 0) { Write-Host "  chatterbox-tts install failed" -ForegroundColor Red; exit 1 }
 Write-Host ""
 
 # ─── 4. Wake word model ───────────────────────────────────────────────────
@@ -84,14 +84,22 @@ Write-Host "Step 5: Downloading OpenWakeWord support models…" -ForegroundColor
 & py -3.11 -c "import openwakeword.utils; openwakeword.utils.download_models()"
 Write-Host ""
 
+# ─── 6. Pre-warm Chatterbox model weights ─────────────────────────────────
+Write-Host "Step 6: Pre-warming Chatterbox model (~1.5 GB download)…" -ForegroundColor Green
+Write-Host "  This downloads the model so the first turn doesn't pay for it." -ForegroundColor Gray
+& py -3.11 -c "from chatterbox.tts_turbo import ChatterboxTurboTTS; ChatterboxTurboTTS.from_pretrained(device='cpu'); print('Chatterbox warmed.')"
+Write-Host ""
+
 # ─── Done ─────────────────────────────────────────────────────────────────
 Write-Host ("=" * 60) -ForegroundColor Cyan
 Write-Host "Installation complete." -ForegroundColor Cyan
 Write-Host ("=" * 60) -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Green
-Write-Host "  1. Start Ollama (desktop app or:  ollama serve)" -ForegroundColor Gray
-Write-Host "  2. Pull your model:  ollama pull <your-model-name>" -ForegroundColor Gray
-Write-Host "  3. Edit config\config.yaml to point at your model and mic" -ForegroundColor Gray
-Write-Host "  4. Launch V:  powershell -ExecutionPolicy Bypass -File scripts\run.ps1" -ForegroundColor Gray
+Write-Host "  1. Drop a 10-30s reference WAV of the target voice in:" -ForegroundColor Gray
+Write-Host "       models\voice_refs\  (see that folder's README)" -ForegroundColor Gray
+Write-Host "  2. Start Ollama (desktop app or:  ollama serve)" -ForegroundColor Gray
+Write-Host "  3. Pull your model:  ollama pull <your-model-name>" -ForegroundColor Gray
+Write-Host "  4. Edit config\config.yaml to point at your model, mic, and voice ref" -ForegroundColor Gray
+Write-Host "  5. Launch V:  powershell -ExecutionPolicy Bypass -File scripts\run.ps1" -ForegroundColor Gray
 Write-Host ""

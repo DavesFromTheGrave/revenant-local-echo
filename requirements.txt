@@ -8,26 +8,19 @@ openwakeword>=0.6.0
 faster-whisper>=1.0.3
 
 # ─── Text-to-speech ─────────────────────────────────────────────────────────
-# Install with --no-deps to skip kokoro's over-conservative numpy==1.26.4 pin:
-#   pip install --no-deps kokoro==0.9.4
-# Then install kokoro's actual runtime deps manually:
-#   pip install loguru huggingface_hub "misaki[en]" munch espeakng-loader transformers
-kokoro>=0.9.0
-loguru
-huggingface_hub
-misaki[en]
-munch
-espeakng-loader
-transformers
+# Chatterbox Turbo (Resemble AI) — zero-shot voice cloning from a 10-30s WAV.
+# Pulls in torchaudio, librosa, transformers, diffusers, perth on its own.
+chatterbox-tts>=0.1.7
 
 # ─── Audio I/O ──────────────────────────────────────────────────────────────
 pyaudio>=0.2.14
 numpy
 
 # ─── GPU runtime ────────────────────────────────────────────────────────────
-# Install the CUDA build to match your driver, e.g. cu121 for driver 12.x:
+# Install the CUDA build to match your driver, e.g. cu121:
 #   pip install torch --index-url https://download.pytorch.org/whl/cu121
 torch>=2.0.0
+torchaudio
 
 # ─── Backend / config / runtime ─────────────────────────────────────────────
 requests>=2.31.0

@@ -25,8 +25,8 @@ speech-to-text → local LLM → text-to-speech → speakers. Nothing leaves the
    Ollama local LLM (GPU)
               │ streaming tokens
               ▼
-   Kokoro TTS (GPU, sentence-by-sentence)
-              │ audio
+   Chatterbox Turbo TTS (GPU, sentence-by-sentence)
+              │ cloned-voice audio
               ▼
         Speakers
               │
@@ -39,9 +39,16 @@ speech-to-text → local LLM → text-to-speech → speakers. Nothing leaves the
 a queue and synthesized in parallel. The assistant starts speaking ~1 sentence
 into the LLM's response, not after the whole reply is generated.
 
-**Warm-window lifecycle:** Whisper and Kokoro stay loaded in VRAM for 60 seconds
-after the last activity, then unload. Conversational use stays fast; idle
-periods release the GPU.
+**Voice cloning:** Chatterbox Turbo takes a 10-30 s reference WAV of the
+target voice and clones it zero-shot. The reference is loaded ONCE on
+startup and cached, so per-sentence synthesis only runs the generate step
+(~1.5 s for short sentences on an RTX 3070 Ti). See
+[`models/voice_refs/README.md`](models/voice_refs/README.md) for how to
+prepare a reference clip.
+
+**Warm-window lifecycle:** Whisper and Chatterbox stay loaded in VRAM for
+60 seconds after the last activity, then unload. Conversational use stays
+fast; idle periods release the GPU.
 
 ## Hardware
 
@@ -73,11 +80,15 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 
 The install script:
 1. Verifies Python 3.11 is available via the `py` launcher
-2. Installs all Python dependencies (including Kokoro with a `--no-deps`
-   workaround for its over-conservative numpy pin)
+2. Installs core dependencies (faster-whisper, openwakeword, pyaudio, etc.)
 3. Installs CUDA-enabled PyTorch (cu121)
-4. Downloads the default "Hey Friday" wake-word model
-5. Downloads OpenWakeWord's support models
+4. Installs Chatterbox Turbo TTS
+5. Downloads the default "Hey Friday" wake-word model
+6. Downloads OpenWakeWord's support models
+7. Pre-warms the Chatterbox model weights (~1.5 GB)
+
+After install, drop a 10-30 s reference WAV of the target voice into
+`models/voice_refs/` — see that folder's README for details.
 
 ## Configure
 
@@ -88,8 +99,9 @@ Edit `config/config.yaml`:
 - **`backend.ollama.model`** — change to whatever Ollama model you want.
   V's reference model (`revenant/v-9b`) is a personal build of a 9B
   model with a baked-in system prompt; substitute your own.
-- **`tts.voice`** — choose a Kokoro voice (`af_bella`, `af_sarah`,
-  `af_nicole`, `am_michael`, `am_adam`, etc.).
+- **`tts.voice_ref`** — path (project-relative or absolute) to a 10-30 s
+  WAV of the voice you want V to use. See
+  [`models/voice_refs/README.md`](models/voice_refs/README.md).
 - **`wake_word.model`** — point at any OpenWakeWord-format `.onnx` file.
   See [`models/README.md`](models/README.md) for the wake-word options.
 
@@ -117,19 +129,20 @@ Revenant-Echo/
 ├── config/
 │   ├── config.yaml          # all tuneable settings
 │   └── .env.example         # optional API keys (only for non-Ollama backends)
-├── models/                  # wake-word .onnx files (gitignored)
-│   └── README.md            # how to get them
+├── models/                  # wake-word .onnx + voice references (gitignored)
+│   ├── README.md            # how to get wake-word models
+│   └── voice_refs/
+│       └── README.md        # how to prepare voice reference WAVs
 ├── scripts/
 │   ├── install.ps1          # one-shot setup
 │   ├── run.ps1              # launcher (checks Ollama, runs V)
-│   ├── test_hardware.py     # CUDA + audio device check
-│   └── enumerate_voices.py  # list / sample Kokoro voices
+│   └── test_hardware.py     # CUDA + audio device check
 ├── src/
 │   ├── main.py              # orchestrator
 │   ├── audio_io.py          # mic capture + speaker output, VAD recording
 │   ├── wake_word.py         # OpenWakeWord listener
 │   ├── stt.py               # faster-whisper wrapper
-│   ├── tts.py               # Kokoro wrapper
+│   ├── tts.py               # Chatterbox Turbo wrapper (voice cloning)
 │   ├── backend.py           # Ollama (streaming + non-streaming)
 │   ├── vram_manager.py      # GPU lifecycle helpers
 │   └── config_loader.py     # YAML config + logging
@@ -144,7 +157,7 @@ Revenant-Echo/
 - **Hidden Whisper load.** When the wake word fires, V starts loading
   Whisper *on a background thread* while the mic is already open. The
   load cost is hidden behind your speech, not added to your latency.
-- **Streaming-aware sentence splitter.** The Ollama → Kokoro pipeline
+- **Streaming-aware sentence splitter.** The Ollama → Chatterbox pipeline
   finds sentence boundaries (`.`, `!`, `?`, `:`) as tokens arrive and
   flushes each completed sentence to a synthesis queue immediately.
   A dedicated speech-worker thread pulls from the queue so the token

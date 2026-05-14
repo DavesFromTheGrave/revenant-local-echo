@@ -2,7 +2,10 @@
 # All tuneable values. No hardcoded settings.
 
 audio:
-  input_device: 2            # Microphone (USB 2.0 Camera) — keyboard-mounted webcam mic
+  # Match the input device by name substring (Windows reorders indexes on
+  # every boot). Falls back to PyAudio default if not found.
+  # To pin by index instead, set input_device to an integer.
+  input_device: "USB 2.0 Camera"
   output_device: null        # null = default system output
   sample_rate: 16000         # STT expects 16kHz
   chunk_size: 1024           # frames per buffer
@@ -14,7 +17,8 @@ wake_word:
   # Custom community model: "Hey Friday" (Marvel reference, female AI).
   # Path is project-local so this is portable across machines.
   model: "models/hey_friday.onnx"
-  threshold: 0.6             # detection confidence (0-1); start at 0.6, tune if false-positive/missed
+  threshold: 0.4             # detection confidence (0-1); community models run lower than bundled
+  debug_scores: true         # log the peak score periodically — turn off once tuned
 
 stt:
   model_size: "medium"       # tiny, small, medium, large
@@ -25,7 +29,7 @@ stt:
   # Prompt bias for transcription
   initial_prompt: |
     Speaker uses technical vocabulary and programming terminology.
-    Proper nouns: V, Claude, Python, CUDA, Ollama, Kokoro.
+    Proper nouns: V, Claude, Python, CUDA, Ollama, Chatterbox, OpenCLAW, Revenant.
     Natural pauses mid-sentence are NOT sentence breaks.
     Maintain natural speech cadence without adding punctuation on every breath.
 
@@ -35,12 +39,20 @@ stt:
   vad_min_silence_ms: 500    # whisper internal segment boundary
 
 tts:
-  model: "kokoro-82m"
-  voice: "af_bella"          # V's voice — female, natural, no speed boost needed
-  language: "en"
+  # Chatterbox Turbo with zero-shot voice cloning.
+  # Drop a 10-30s WAV of the target voice in models/voice_refs/ and point
+  # voice_ref at it. The reference is loaded ONCE on TTS init and cached
+  # so per-sentence synthesis only runs the generate step.
+  engine: "chatterbox"
+  voice_ref: "models/voice_refs/v_combined.wav"
   device: "cuda"
-  sample_rate: 24000
-  speed: 1.0                 # normal speed
+
+  # Generation knobs (Turbo ignores cfg_weight / min_p / exaggeration)
+  temperature: 0.8           # higher = more varied delivery; lower = flatter
+  top_p: 0.95
+  top_k: 1000
+  repetition_penalty: 1.2
+  norm_loudness: true        # normalize the reference clip's loudness
 
 listening_window:
   enabled: true
@@ -53,12 +65,21 @@ models:
 backend:
   type: "ollama"             # ollama, openai, local_echo
 
+  # Turn-level instruction prepended to every prompt to enforce short voice
+  # replies. Does NOT override your Modelfile SYSTEM prompt — the Modelfile
+  # still controls V's personality; this just shapes response length.
+  # Uncomment and edit to customize:
+  # brevity_prefix: |
+  #   [Voice mode: respond in 1-2 short sentences. No preamble.]
+  #
+  #   User:
+
   ollama:
     endpoint: "http://localhost:11434/api/generate"
     model: "revenant/v-9b"
     temperature: 0.7
     top_p: 0.9
-    max_tokens: 50           # cap response length — voice replies should be short (1-2 sentences)
+    max_tokens: 120          # hard ceiling. Brevity prefix in backend.py is the real length control.
     timeout: 30              # seconds
     keep_alive: "5m"         # ollama-side model retention
 

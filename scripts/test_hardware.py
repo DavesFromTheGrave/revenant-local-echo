@@ -84,40 +84,31 @@ def test_audio():
 
 
 def test_models():
-    """Test model availability (whisper, OpenWakeWord, Kokoro)."""
+    """Test model availability (faster-whisper, OpenWakeWord, Chatterbox)."""
     logger.info("-" * 60)
     logger.info("Model Availability Test")
     logger.info("-" * 60)
-    
-    config = VoiceConfig()
-    
-    # Whisper
-    try:
-        import whisper
-        logger.info(f"✓ Whisper available (version {whisper.__version__ if hasattr(whisper, '__version__') else 'unknown'})")
-    except ImportError:
-        logger.warning("✗ Whisper not available (pip install openai-whisper)")
-    
+
     # faster-whisper
     try:
-        from faster_whisper import WhisperModel
+        from faster_whisper import WhisperModel  # noqa: F401
         logger.info("✓ faster-whisper available")
     except ImportError:
         logger.warning("✗ faster-whisper not available (pip install faster-whisper)")
-    
+
     # OpenWakeWord
     try:
-        from openwakeword.model import Model
+        from openwakeword.model import Model  # noqa: F401
         logger.info("✓ OpenWakeWord available")
     except ImportError:
         logger.warning("✗ OpenWakeWord not available (pip install openwakeword)")
-    
-    # Kokoro
+
+    # Chatterbox
     try:
-        from kokoro import build_model
-        logger.info("✓ Kokoro available")
+        from chatterbox.tts_turbo import ChatterboxTurboTTS  # noqa: F401
+        logger.info("✓ Chatterbox Turbo available")
     except ImportError:
-        logger.warning("✗ Kokoro not available (pip install kokoro)")
+        logger.warning("✗ Chatterbox not available (pip install chatterbox-tts)")
     
     # PyAudio
     try:

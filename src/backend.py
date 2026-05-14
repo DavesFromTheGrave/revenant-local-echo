@@ -40,6 +40,15 @@ class Backend:
         self.ollama_timeout = int(config.get("backend.ollama.timeout", 30))
         self.ollama_keep_alive = config.get("backend.ollama.keep_alive", "5m")
 
+        # Brevity instruction prepended to every prompt. Voice replies must
+        # be short. This is a turn-level instruction wrapper, NOT a system
+        # prompt — that keeps the Modelfile SYSTEM (V's personality) intact.
+        self.brevity_prefix = config.get(
+            "backend.brevity_prefix",
+            "[Voice mode: respond in 1-2 short sentences. No preamble, no follow-up offers, "
+            "no explanation unless asked. Be conversational and direct.]\n\nUser: ",
+        )
+
         # OpenAI config
         self.openai_api_key = config.get("backend.openai.api_key")
         self.openai_model = config.get("backend.openai.model", "gpt-4-turbo")
@@ -61,9 +70,10 @@ class Backend:
         return f"Unknown backend: {self.backend_type.value}"
 
     def _ollama_generate(self, prompt: str) -> str:
+        wrapped = f"{self.brevity_prefix}{prompt}"
         payload = {
             "model": self.ollama_model,
-            "prompt": prompt,
+            "prompt": wrapped,
             "stream": False,
             "keep_alive": self.ollama_keep_alive,
             "think": False,
@@ -112,9 +122,10 @@ class Backend:
         yield self.generate(prompt)
 
     def _ollama_stream(self, prompt: str) -> Iterator[str]:
+        wrapped = f"{self.brevity_prefix}{prompt}"
         payload = {
             "model": self.ollama_model,
-            "prompt": prompt,
+            "prompt": wrapped,
             "stream": True,
             "keep_alive": self.ollama_keep_alive,
             # revenant/v-9b is a thinking model; without this it spends its

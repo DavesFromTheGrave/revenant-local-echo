@@ -142,11 +142,11 @@ class VoiceAssistant:
 
     def _stream_response(self, user_text: str) -> bool:
         """
-        Stream Ollama tokens → sentence buffer → Kokoro per sentence → playback.
+        Stream Ollama tokens → sentence buffer → Chatterbox per sentence → playback.
 
         Producer (this thread): pulls tokens from Ollama, builds sentences,
         pushes each completed sentence onto a queue.
-        Consumer (speech thread): pulls sentences, synthesizes via Kokoro,
+        Consumer (speech thread): pulls sentences, synthesizes via Chatterbox,
         plays audio. Keeps Ollama draining continuously even while V is talking.
         """
         import re
