@@ -137,8 +137,6 @@ def test_backend():
         backend = Backend(config)
         
         logger.info(f"Backend type: {backend.backend_type.value}")
-        logger.info(f"Backend endpoint: {backend.endpoint}")
-        logger.info(f"Backend model: {backend.model}")
         
         is_healthy = backend.health_check()
         if is_healthy:

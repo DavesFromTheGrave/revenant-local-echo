@@ -81,6 +81,13 @@ class AudioIO:
                 f"Out: {info['maxOutputChannels']}"
             )
 
+    def enumerate_devices(self) -> dict:
+        """Return a dictionary of all audio devices."""
+        devices = {}
+        for i in range(self.p.get_device_count()):
+            devices[i] = self.p.get_device_info_by_index(i)
+        return devices
+
     def get_input_device(self) -> Optional[int]:
         """Resolve the input device from config (int index or name substring)."""
         return resolve_input_device(self.p, self.config.get("audio.input_device"))

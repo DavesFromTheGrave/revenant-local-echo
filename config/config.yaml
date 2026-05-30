@@ -63,30 +63,38 @@ models:
   warm_window: 60.0          # seconds STT+TTS stay in VRAM after last activity
 
 backend:
-  type: "ollama"             # ollama, openai, local_echo
+  type: "ollama"             # ollama, megallm, openai, local_echo
 
-  # Turn-level instruction prepended to every prompt to enforce short voice
-  # replies. Does NOT override your Modelfile SYSTEM prompt — the Modelfile
-  # still controls V's personality; this just shapes response length.
-  # Uncomment and edit to customize:
-  # brevity_prefix: |
-  #   [Voice mode: respond in 1-2 short sentences. No preamble.]
-  #
-  #   User:
+  # Turn-level instruction prepended to Ollama prompts. MegaLLM uses a chat
+  # system message in backend.py for the same voice-mode behavior.
+  brevity_prefix: |
+    [Voice mode: respond in 1-2 short sentences. No preamble, no follow-up offers, no explanation unless asked. Be conversational and direct.]
+
+    User:
 
   ollama:
     endpoint: "http://localhost:11434/api/generate"
     model: "revenant/v-9b"
     temperature: 0.7
     top_p: 0.9
-    max_tokens: 120          # hard ceiling. Brevity prefix in backend.py is the real length control.
-    timeout: 30              # seconds
-    keep_alive: "5m"         # ollama-side model retention
+    max_tokens: 120
+    timeout: 30
+    keep_alive: "5m"
 
-  # openai:
-  #   api_key: ""
-  #   model: "gpt-4-turbo"
+  megallm:
+    base_url: "https://ai.megallm.io/v1"
+    model: "grok-4.1-fast-reasoning"
+    api_key_env: "MEGALLM_API_KEY"
+    temperature: 0.7
+    top_p: 0.9
+    max_tokens: 120
+    timeout: 60
 
+  # Legacy OpenAI backend. Not used unless backend.type is "openai".
+  # Keep secrets out of this file.
+  openai:
+    api_key: ""
+    model: "gpt-4-turbo"
 logging:
   level: "INFO"              # DEBUG, INFO, WARNING, ERROR
   file: "logs/revenant_echo.log"
